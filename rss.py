@@ -6,12 +6,16 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
+import urllib3
 from bs4 import BeautifulSoup
 
 
 WEB_URL = "https://www.rentacorporacion.com/es/sala-de-prensa/"
 BASE_URL = "https://www.rentacorporacion.com"
 ARCHIVO_RSS = Path("renta-corporacion.xml")
+
+# La web de Renta Corporación tiene un problema con su certificado SSL.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 CABECERAS = {
     "User-Agent": (
@@ -69,6 +73,7 @@ def descargar_pagina():
                 headers=CABECERAS,
                 timeout=90,
                 allow_redirects=True,
+                verify=False,
             )
             respuesta.raise_for_status()
 
@@ -84,9 +89,7 @@ def descargar_pagina():
             RuntimeError,
         ) as error:
             ultimo_error = error
-            print(
-                f"Intento {intento} fallido: {error}"
-            )
+            print(f"Intento {intento} fallido: {error}")
 
             if intento < 3:
                 time.sleep(5 * intento)
@@ -139,7 +142,6 @@ def convertir_fecha(texto):
 
 def es_enlace_de_prensa(url):
     ruta = urlparse(url).path.lower().rstrip("/")
-
     return "/es/blog/prensa/" in ruta
 
 
@@ -196,12 +198,14 @@ def obtener_descripcion(contenedor, titulo):
     )
 
     texto = texto.replace(titulo, " ")
+
     texto = re.sub(
         r"\b(?:leer|ver)\s+m[aá]s\b",
         " ",
         texto,
         flags=re.IGNORECASE,
     )
+
     texto = re.sub(
         r"\b\d{1,2}\s+(?:de\s+)?"
         r"(?:enero|febrero|marzo|abril|mayo|junio|julio|"
@@ -211,6 +215,7 @@ def obtener_descripcion(contenedor, titulo):
         texto,
         flags=re.IGNORECASE,
     )
+
     texto = limpiar_texto(texto)
 
     if texto == titulo:
@@ -372,4 +377,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
